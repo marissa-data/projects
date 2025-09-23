@@ -1,0 +1,81 @@
+---
+title: "Project 4"
+output:
+  html_document: default
+  pdf_document: default
+  word_document: default
+date: "2024-04-23"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+I'm only loading in the packages that I need to make my visualizations here.
+```{r}
+library(ggplot2)
+library(dplyr)     
+library(tidyr)     
+library(leaflet)
+library(data.table)
+```
+
+To maximize efficiency, I use the "fread" function to load in my data set, with only the variables I need for my visualizations. If I were to use the "read_csv" function, it would take around 0.078 seconds, while the "fread" function with the selected variables only takes 0.001 seconds. I tested this using "system.time".
+
+```{r}
+refuge_restrooms <- fread("refuge_restrooms.csv",
+                          data.table = FALSE,
+                          select = c("id", "name", "accessible",
+                                     "unisex", "latitude", "longitude",
+                                     "changing_table"))
+```
+
+Visualization 1:
+
+Here, I am using the leaflet package to make an interactive map. This is a quick and very effective way of conveying where Refuge Restrooms are throughout the world, the name of each establishment, and if they are accessible to those with disabilities. Although we did not cover this package in this course, I've always wanted to know how to make an interactive map, so I did some research on my own here: https://r-charts.com/spatial/interactive-maps-leaflet/.
+
+```{r}
+restroom_map <- leaflet(data = refuge_restrooms) |>
+  addTiles() |>
+  setView(lng = mean(refuge_restrooms$longitude), 
+          lat = mean(refuge_restrooms$latitude), zoom = 3) |>
+  addCircleMarkers(
+    lng = ~longitude,
+    lat = ~latitude,
+    radius = 3,  
+    color = ~ifelse(accessible, "blue", "red"),  
+    fillOpacity = 0.6,  
+    popup = ~paste("Location:", name)) |>
+  addControl(
+    html = "<h3 style='text-align: center;'
+    >Refuge Restroom Locations: 100 User Submissions In 2024</h3>",
+    position = "topright") |>
+  addControl(
+    html = "<h4 style='text-align: center;'>Created by Marissa</h4>",
+    position = "bottomright") |>
+  addLegend(
+    position = "bottomleft",
+    colors = c("blue", "red"),
+    labels = c("Accessible", "Not Accessible"),
+    title = "Accessibility Status")
+restroom_map
+```
+I've maximized efficiency by having all my code run at once, as well as making the radius of the circles smaller and making the circles more transparent. I also use the "~" key to specify commands for all my observations, as opposed to running them separately. Using "system.time", I found that this takes 0.001 seconds. I can estimate that if I were to create a similar map using ggplot, it would take at least 0.020 seconds longer because there would be way more arguments to specify (most importantly, the fact that I want a map in the first place because ggplot has many different ways to visualize information).
+
+Visualization 2:
+
+Here, I wanted to show the number of restrooms that were unisex, had a changing table, both, or neither. A bar graph is an easy and informative way to show the difference in the number of restrooms for each bar.
+
+```{r}
+refuge_restrooms |>
+  ggplot(aes(x = changing_table, fill = unisex)) +
+    geom_bar(position = "dodge") + 
+    scale_x_discrete(labels = c("No Changing Table", "Changing Table")) +
+    scale_fill_manual(labels = c("Not Unisex", "Unisex"), values =
+                          c("purple", "orange")) + 
+    labs(x = "Changing Table", y = "Number of Restrooms", 
+         fill = "Unisex", title = 
+           "Refuge Restrooms: Do Unisex Restrooms Have a Changing Table?") 
+```
+
+I've maximized efficiency here by specifying my own colors for the unisex variable, specifying a y-axis label (instead of having it default to count), and by using geom_bar instead of geom_col (no need to have extra code to set the y-variable myself). This takes about 0.002 seconds according to "system.time", while using the other methods I've mentioned above will take at least 0.003 seconds longer.

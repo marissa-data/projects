@@ -1,0 +1,70 @@
+---
+title: "DSST Project 3"
+output:
+  pdf_document: default
+  html_document: default
+date: "2024-04-18"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Here, load all of the neccessary functions.
+```{r}
+library(dplyr)     
+library(tidyr)     
+library(httr)
+library(polite)   
+library(jsonlite)
+library(readr)
+```
+
+Here, I'm creating the function that I'll use to retrieve the data from the API.
+```{r}
+polite_GET_norobots <- politely(GET, verbose = TRUE, robots = FALSE)
+```
+
+I'm now going to create an object that uses our polite_GET_norobots function to get our website data. For a more in-depth explanation of this specfic URL, please check out the user guide.
+```{r}
+response <- polite_GET_norobots(
+  'https://www.refugerestrooms.org/api/v1/restrooms?per_page=100')
+```
+
+Now, I'm converting "response" into JSON format as text, and using "content" to create my dataset.
+```{r}
+content <- content(response, as = "text", type = "application/json")
+
+refuge_restrooms <- fromJSON(content)
+```
+
+Here, I'm doing some manual data cleaning to make sure that the naming convention for states is all consistent (full names of states instead of abbreviations).
+```{r}
+refuge_restrooms <- refuge_restrooms |>
+  mutate(state = recode(state,
+                        "TN" = "Tennessee", "ME" = "Maine", "ON" = "Ontario",
+                        "Sc" = "South Carolina", "TX" = "Texas", 
+                        "AR" = "Arkansas", "MD" = "Maryland", 
+                        "CT" = "Connecticut", "UT" = "Utah", 
+                        "NL" = "Newfoundland", "AZ" = "Arizona", 
+                        "CA" = "California", "WA" = "Washington",
+                        "OH" = "Ohio", "GA" = "Georgia", "NB" = "New Brunswick",
+                        "VT" = "Vermont", "IL" = "Illinois", "KY" = "Kentucky",
+                        "SK" = "Saskatchewan", "NY" = "New York", 
+                        "Fl" = "Florida", "TW6 1SL" = "Hillingdon",
+                        "MA" = "Massachusetts", "AL" = "Alabama", 
+                        "SP" = "São Paulo", "IN" = "Indiana", 
+                        "BC" = "British Columbia", "FL" = "Florida", 
+                        "NE" = "Nebraska", "Ca" = "California", 
+                        "NJ" = "New Jersey", "NSW 2804" = "New South Wales"))
+```
+
+Finally, I'm transforming my dataset into a .csv file.
+```{r}
+str(refuge_restrooms)
+
+myname <- "marissaburton"
+
+write_csv(refuge_restrooms, 
+          paste0("../data/", myname, "_refuge_restrooms.csv")) 
+```
