@@ -1,1 +1,1 @@
-
+This project uses a public API in order to find available Refuge Restrooms globally. In this folder, you will find detailed instructions on how to use the API in R to obtain data in JSON format, an implementation of these instructions in R, and some visualizations of the data.
