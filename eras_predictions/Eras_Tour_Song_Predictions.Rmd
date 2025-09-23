@@ -1,0 +1,159 @@
+---
+title: "Predictive Modeling: What Taylor Swift Songs Would be on the Eras Tour?"
+output: pdf_document
+date: "2024-03-07"
+---
+
+```{r, include=FALSE, message=FALSE}
+library(readr)     # For read_csv
+library(dplyr)     # For data manipulation verbs
+library(ggplot2)   # For plotting
+library(broom)     # For extracting information from model objects
+library(glmnet)    # For regularized regression
+```
+
+```{r, include=FALSE}
+swift_spotify <- read.csv("../data/swift_spotify.csv") 
+swift_spotify
+```
+
+Popularity Model 1:
+
+For my first popularity prediction model, I decided to focus on all the variables that relate to timing: song duration, tempo, and time signature. I decided to use a regularization model for this because I can build a complex model while limiting overfitting. I think this would be a good model to use because people will generally want a pop album like Midnights to be shorter, faster, and upbeat. 
+
+```{r, echo=FALSE}
+model_pop_1 <- lm(popularity ~ duration_ms+tempo+time_signature, 
+                data = swift_spotify) 
+
+tidy(model_pop_1)
+
+pop_1_predictor_matrix <- model.matrix(model_pop_1)[,-1]
+
+pop_1_outcome_matrix <- swift_spotify |> 
+  filter(album != "Midnights") |>
+  select(popularity) |>
+  as.matrix()
+
+pop_1_model_ridge <- glmnet(x = pop_1_predictor_matrix, 
+                            y = pop_1_outcome_matrix, 
+                            alpha = 0, nlambda = 10)
+
+test_1 <- as.matrix(swift_spotify[, c('duration_ms', 'tempo',
+                                      'time_signature')])
+
+test_1_pop <- as.data.frame(predict(pop_1_model_ridge, newx = test_1))
+
+test_1_pop <- test_1_pop |>
+  mutate(popularity_predict = test_1_pop$s5) |>
+  select(popularity_predict) |>
+  mutate(id = swift_spotify$id) |>
+  left_join(swift_spotify, by = "id")
+```
+
+Popularity Model 1 Prediction Error:
+```{r}
+test_1_pop |>
+  summarize(RMSE = sqrt(mean((popularity - popularity_predict)^2, 
+                             na.rm = TRUE)))
+```
+This root mean squared error indicates that this regularization model gives me a pretty low average error. This means I would expect each popularity prediction value to be about + or - 7.344078 from the actual value. The root mean squared error I got from my second model is about the same, but I'll choose the first popularity model for this project because I think the variables I chose are better predictors of popularity. Because this model does a good job of predicting popularity for the pre-existing popularity values, I think it will also do a good job of predicting popularity for Midnights.
+
+Popularity Model 2: 
+
+For my second popularity prediction model, I chose the variables valence and energy. Typically, people want to listen to songs that elicit positive emotions, and these songs will have the most energy as well. Again, I used a regularization model because I can build a complex model while limiting overfitting. 
+
+```{r, echo=FALSE}
+model_pop_2 <- lm(popularity ~ valence+energy, data = swift_spotify) 
+
+tidy(model_pop_2)
+
+pop_2_predictor_matrix <- model.matrix(model_pop_2)[,-1]
+
+pop_2_outcome_matrix <- swift_spotify |> 
+  filter(album != "Midnights") |>
+  select(popularity) |>
+  as.matrix()
+
+pop_2_model_ridge <- glmnet(x = pop_2_predictor_matrix, 
+                            y = pop_2_outcome_matrix, 
+                            alpha = 0, nlambda = 10)
+
+test_2 <- as.matrix(swift_spotify[, c('valence', 'energy')])
+
+test_2_pop <- as.data.frame(predict(pop_2_model_ridge, newx = test_2))
+
+test_2_pop <- test_2_pop |>
+  mutate(popularity_predict = test_2_pop$s5) |>
+  select(popularity_predict) |>
+  mutate(id = swift_spotify$id) |>
+  left_join(swift_spotify, by = "id")
+```
+
+Popularity Model 2 Prediction Error:
+```{r}
+test_2_pop |>
+  summarize(RMSE = sqrt(mean((popularity - popularity_predict)^2, 
+                             na.rm = TRUE)))
+```
+As stated above, this root mean squared error is very close to the RMSE for my first popularity prediction model, but I think timing will do a better job of predicting popularity (as represented in my first model).
+
+Eras Model 1: 
+
+For this model, I decided to look at the interaction between danceability, energy, and loudness. I chose these variables because during a concert, people want a loud, upbeat song to dance to. I also chose to use a logistic model because eras is a binary variable (yes or no).
+
+```{r, echo=FALSE}
+model_1_era <- glm(eras ~ danceability*energy*loudness, 
+                   data = swift_spotify, family = "binomial")
+
+tidy(model_1_era)
+
+test_1_era <- augment(model_1_era, 
+                      newdata = swift_spotify, type.predict = "response") |>
+  rename(eras_predict = .fitted) |>
+  mutate(eras_predict = ifelse(eras_predict >= 0.5, 1, 0)) |>
+  select(id, eras_predict)
+```
+
+Eras Model 1 Prediction Error:
+```{r}
+augment(model_1_era, newdata = swift_spotify, type.predict = "response") |> 
+  mutate(eras_predict = as.numeric(.fitted > 0.5)) |> 
+  head(134) |>
+  group_by(eras, eras_predict) |> 
+  summarize(n = n())
+```
+This confusion matrix tells me that there were 95 true negatives, 4 false positives, 29 false negatives, and 6 true positives. This means that 95 songs were categorized correctly as not on the eras tour (specificity), while only 6 songs were categorized correctly for being on the eras tour (sensitivity). While the other confusion matrix for my second eras model predicts more true negatives, I think that this first model is the best to use for this project because it predicts better sensitivity than the second model does. If the sensitivity is better for the pre-existing eras value, then I think it will also be better for predicting sensitivity for the Midnights album.
+
+Eras Model 2:
+
+For my second eras model, I chose to examine an interaction between acousticness, instrumentalness, and loudness. To me, these variables seem like good predictors of songs played during a Taylor Swift concert because she has a whole band to play her music, she plays a lot of guitar and piano, and these instruments are going to be loud. Again, I used a logistic model because eras is a binary variable (yes or no).
+
+```{r, echo=FALSE}
+model_2_era <- glm(eras ~ acousticness*instrumentalness*loudness,
+                   data = swift_spotify, family = "binomial")
+
+tidy(model_2_era)
+
+test_2_era <- augment(model_2_era, 
+                      newdata = swift_spotify, type.predict = "response") |>
+  rename(eras_predict = .fitted) |>
+  mutate(eras_predict = ifelse(eras_predict >= 0.5, 1, 0)) |>
+  select(id, eras_predict)
+```
+Eras Model 2 Prediction Error:
+```{r}
+augment(model_2_era, newdata = swift_spotify, type.predict = "response") |> 
+  mutate(eras_predict = as.numeric(.fitted > 0.5)) |> 
+  head(134) |>
+  group_by(eras, eras_predict) |> 
+  summarize(n = n())
+```
+As stated above, this confusion matrix does give more true negatives than my confusion matrix for the first eras model (99), but less true positives (I am looking for better sensitivity).
+
+```{r, echo=FALSE}
+final_predictions <- test_1_era |>
+  left_join(test_1_pop, by = "id") |>
+  select(-c("popularity_predict", "eras_predict"), c("popularity_predict", "eras_predict"))
+
+str(final_predictions)
+```
