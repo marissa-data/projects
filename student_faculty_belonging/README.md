@@ -1,1 +1,1 @@
-Collection of materials from year-long, two-study, exploratory honors thesis project on the mutually beneficial relationship between faculty and student belonging. Data collection and analysis are confidential.
+Collection of materials from year-long, two-study, exploratory honors thesis project on the mutually beneficial relationship between faculty and student belonging. Raw data collection and analysis are confidential.
